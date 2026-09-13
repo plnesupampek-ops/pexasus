@@ -1,0 +1,7 @@
+{
+  "name": "PLN ES Padang Penugasan Khusus",
+  "description": "A dynamic multi-unit monitoring application for special assignments (Penugasan Khusus) with initiation-based configuration, role-based access, photo evidence collection, and multi-unit analytical dashboards.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
