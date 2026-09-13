@@ -701,11 +701,11 @@ const App: React.FC = () => {
       title1.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF0F172A' } };
       title1.alignment = { horizontal: 'center', vertical: 'middle' };
 
-      // Baris 2: ULP <ULP FILTER> UP3 PADANG
+      // Baris 2: ULP <ULP FILTER> UP4 SUMBAR
       worksheet.mergeCells('A2:J2');
       const title2 = worksheet.getCell('A2');
       const filterUlpText = tableUlpFilter ? tableUlpFilter.toUpperCase() : 'SEMUA ULP';
-      title2.value = `${filterUlpText} UP3 PADANG`;
+      title2.value = `${filterUlpText} UP4 SUMBAR`;
       title2.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF334155' } };
       title2.alignment = { horizontal: 'center', vertical: 'middle' };
 
@@ -977,7 +977,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <div className="text-right leading-none">
                 <span className="text-[10px] font-bold text-slate-400 tracking-wider block uppercase">Unit Layanan</span>
-                <span className="text-sm font-black text-[#004bb4] tracking-wider block uppercase">{appConfig?.unitName.replace('UL ', '') || 'Padang'}</span>
+                <span className="text-sm font-black text-[#004bb4] tracking-wider block uppercase">{appConfig?.unitName.replace('UL ', '') || 'UP4 SUMBAR'}</span>
               </div>
               <div className="w-0.5 h-7 bg-[#005bd4] rounded-full"></div>
             </div>
@@ -1132,7 +1132,7 @@ const App: React.FC = () => {
 
           {/* Footer Branding Credit */}
           <div className="text-center pt-8 text-[10px] text-slate-400 font-medium">
-            <span className="opacity-80">© {new Date().getFullYear()} PLN UP3 {appConfig?.unitName.replace('UL ', '') || 'Padang'} — PEXASUS V{APP_VERSION}</span>
+            <span className="opacity-80">© {new Date().getFullYear()} PLN ES {appConfig?.unitName.replace('UL ', '') || 'UP4 SUMBAR'} — PEXASUS V{APP_VERSION}</span>
           </div>
 
         </div>
@@ -1250,7 +1250,7 @@ const App: React.FC = () => {
                   PEXASUS
                 </span>
                 <span className="text-[9px] sm:text-[10px] text-[#f1ab00] font-black uppercase tracking-widest mt-1 bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20">
-                  {session.ulp || `UP3 ${appConfig?.unitName.replace('UL ', '') || 'PADANG'}`}
+                  {session.ulp || `UP4 SUMBAR`}
                 </span>
               </div>
               <div className="w-px h-10 bg-gradient-to-b from-transparent via-white/20 to-transparent block"></div>
@@ -1470,7 +1470,7 @@ const App: React.FC = () => {
                     </div>
                   </section>
                   <div className="pt-10 border-t border-slate-100 flex flex-col items-center gap-2">
-                    <p className="text-base font-black text-slate-800 uppercase">PLN Electricity Services {appConfig?.unitName.replace('UL ', '') || 'Padang'}</p>
+                    <p className="text-base font-black text-slate-800 uppercase">PLN Electricity Services {appConfig?.unitName.replace('UL ', '') || 'UP4 SUMBAR'}</p>
                     <p className="text-[11px] text-slate-400 font-bold uppercase">© DD-2025 • IT Unit Layanan {appConfig?.unitName.replace('UL ', '') || 'Bukittinggi'}</p>
                   </div>
                </div>

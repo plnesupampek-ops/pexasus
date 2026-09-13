@@ -58,7 +58,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ reports, masterData, unitN
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Dashboard Monitoring</h2>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Realisasi Penugasan Khusus • {unitName || 'Unit Layanan Padang'}</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Realisasi Penugasan Khusus • {unitName || 'UP4 SUMBAR'}</p>
         </div>
         
         <div className="flex flex-wrap items-end gap-3">
@@ -96,7 +96,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ reports, masterData, unitN
             <svg className="w-48 h-48" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
           <div className="relative z-10 text-center md:text-left">
-            <h3 className="text-sm font-black uppercase tracking-[0.4em] text-cyan-200 mb-2">Total Realisasi UP3 {unitName?.replace('UL ', '') || 'PADANG'}</h3>
+            <h3 className="text-sm font-black uppercase tracking-[0.4em] text-cyan-200 mb-2">Total Realisasi UP4 SUMBAR</h3>
             <div className="flex items-baseline justify-center md:justify-start gap-3">
               <span className="text-7xl font-black tracking-tighter">{totalUP3}</span>
               <span className="text-xl font-bold text-cyan-300 uppercase tracking-widest">Laporan</span>

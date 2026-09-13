@@ -203,7 +203,7 @@ export const AdminRekapTiangKms: React.FC<AdminRekapTiangKmsProps> = ({ reports,
 
       worksheet.mergeCells('A2:J2');
       const title2 = worksheet.getCell('A2');
-      title2.value = `UP3 ${unitName?.replace('UL ', '') || 'PADANG'}`;
+      title2.value = `UP4 SUMBAR`;
       title2.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF334155' } };
       title2.alignment = { horizontal: 'center', vertical: 'middle' };
 

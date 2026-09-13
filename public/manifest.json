@@ -1,7 +1,7 @@
 {
   "name": "PEXASUS",
   "short_name": "PEXASUS",
-  "description": "Aplikasi PEXASUS Monitoring UP4 sumbar",
+  "description": "Aplikasi PEXASUS Monitoring UP4 SUMBAR",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1d36",
