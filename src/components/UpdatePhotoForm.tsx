@@ -102,27 +102,30 @@ export const UpdatePhotoForm: React.FC<UpdatePhotoFormProps> = ({ report, onSubm
       // PENTING: Timestamp harus sama dengan data asli agar backend bisa menemukan baris di Spreadsheet
       timestamp: report.timestamp, 
       // Summary columns
+      // Only include http links for summary columns to avoid cell character limit
       "FOTO SEBELUM": cleanSebelum.filter(p => p && p.startsWith('http')).join(', '),
       "FOTO SESUDAH": cleanSesudah.filter(p => p && p.startsWith('http')).join(', '),
       "Foto Sebelum": cleanSebelum.filter(p => p && p.startsWith('http')).join(', '),
       "Foto Sesudah": cleanSesudah.filter(p => p && p.startsWith('http')).join(', '),
       // Individual columns for photos 1-10
+      // We send either the existing URL or the base64 data. 
+      // The GAS backend is responsible for converting base64 to Drive URLs.
       ...cleanSebelum.reduce((acc, p, i) => {
-        const link = p && p.startsWith('http') ? p : '';
+        const value = p || '';
         return { 
           ...acc, 
-          [`Foto Sebelum ${i + 1}`]: link,
-          [`fotoSebelum${i + 1}`]: link,
-          [`FOTO SEBELUM ${i + 1}`]: link
+          [`Foto Sebelum ${i + 1}`]: value,
+          [`fotoSebelum${i + 1}`]: value,
+          [`FOTO SEBELUM ${i + 1}`]: value
         };
       }, {}),
       ...cleanSesudah.reduce((acc, p, i) => {
-        const link = p && p.startsWith('http') ? p : '';
+        const value = p || '';
         return { 
           ...acc, 
-          [`Foto Sesudah ${i + 1}`]: link,
-          [`fotoSesudah${i + 1}`]: link,
-          [`FOTO SESUDAH ${i + 1}`]: link
+          [`Foto Sesudah ${i + 1}`]: value,
+          [`fotoSesudah${i + 1}`]: value,
+          [`FOTO SESUDAH ${i + 1}`]: value
         };
       }, {}),
       photos: {

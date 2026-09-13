@@ -76,7 +76,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, onCancel, master
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 400; 
+          // Ukuran 160px adalah ukuran paling aman untuk kestabilan Google Apps Script & Drive
+          const MAX_WIDTH = 160; 
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
@@ -86,7 +87,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, onCancel, master
             ctx.imageSmoothingQuality = 'medium';
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           }
-          resolve(canvas.toDataURL('image/jpeg', 0.5));
+          // Kualitas 0.3 memastikan payload ringan (< 15KB) sehingga tidak memicu timeout atau limit sel di server
+          resolve(canvas.toDataURL('image/jpeg', 0.3));
         };
         img.onerror = (err) => reject(err);
       };
@@ -137,29 +139,30 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, onCancel, master
       jumlahTiang,
       jumlahKms,
       // Summary columns (All Caps and Sentence Case)
+      // Only include http links for summary columns to avoid cell character limit
       "FOTO SEBELUM": photosSebelum.filter(p => p && p.startsWith('http')).join(', '),
       "FOTO SESUDAH": photosSesudah.filter(p => p && p.startsWith('http')).join(', '),
       "Foto Sebelum": photosSebelum.filter(p => p && p.startsWith('http')).join(', '),
       "Foto Sesudah": photosSesudah.filter(p => p && p.startsWith('http')).join(', '),
       // Individual columns for photos 1-10
-      // We only send the link if it's already a URL (e.g. from previous upload).
-      // We do NOT send base64 to spreadsheet columns to avoid hitting the 50k character limit.
+      // We send either the existing URL or the base64 data. 
+      // The GAS backend is responsible for converting base64 to Drive URLs.
       ...photosSebelum.reduce((acc, p, i) => {
-        const link = p && p.startsWith('http') ? p : '';
+        const value = p || '';
         return { 
           ...acc, 
-          [`Foto Sebelum ${i + 1}`]: link,
-          [`fotoSebelum${i + 1}`]: link,
-          [`FOTO SEBELUM ${i + 1}`]: link
+          [`Foto Sebelum ${i + 1}`]: value,
+          [`fotoSebelum${i + 1}`]: value,
+          [`FOTO SEBELUM ${i + 1}`]: value
         };
       }, {}),
       ...photosSesudah.reduce((acc, p, i) => {
-        const link = p && p.startsWith('http') ? p : '';
+        const value = p || '';
         return { 
           ...acc, 
-          [`Foto Sesudah ${i + 1}`]: link,
-          [`fotoSesudah${i + 1}`]: link,
-          [`FOTO SESUDAH ${i + 1}`]: link
+          [`Foto Sesudah ${i + 1}`]: value,
+          [`fotoSesudah${i + 1}`]: value,
+          [`FOTO SESUDAH ${i + 1}`]: value
         };
       }, {}),
       photos: {

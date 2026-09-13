@@ -4,7 +4,7 @@ import { BACKUP_FOLDER_ID } from '@/constants';
 /**
  * Get current Google Script URL dynamically from localStorage
  */
-const getScriptUrl = (): string => {
+export const getScriptUrl = (): string => {
   let url = (localStorage.getItem('scriptUrl') || '').trim(); 
   
   if (!url) {
@@ -53,7 +53,7 @@ export const api = {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error(`Database Tidak Ditemukan (404).\n\nURL yang dipanggil: ${finalUrl}\n\nHal ini biasanya terjadi karena:\n1. URL di Master Inisiasi salah/mati\n2. Skrip Apps Script telah dihapus\n3. Skrip belum di-deploy sebagai 'Web App'`);
+          throw new Error(`Database Tidak Ditemukan (404).\n\nURL yang dipanggil: ${finalUrl}\n\nHal ini biasanya terjadi karena:\n1. URL di Master Inisiasi salah/mati. Cek Master Sheet: https://docs.google.com/spreadsheets/d/14tJtuPhLzks6lBoAZmQeyu2xtWIycWdjgHiPHl3wcOo/edit\n2. Skrip Apps Script telah dihapus\n3. Skrip belum di-deploy sebagai 'Web App'`);
         }
         throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
       }

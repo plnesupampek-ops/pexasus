@@ -83,6 +83,26 @@ export const InitiationPage: React.FC<InitiationPageProps> = ({ onInitiate }) =>
     }
   };
 
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleSelect = async (config: AppConfig) => {
+    setIsChecking(true);
+    try {
+      const response = await fetch(`${config.gasUrl}?action=health`).catch(() => null);
+      if (response && response.status === 404) {
+        if (!confirm(`⚠️ PERINGATAN: Link Database unit "${config.unitName}" terdeteksi MATI (404) di Master Sheet.\n\nAnda mungkin tidak bisa login. Tetap gunakan unit ini?`)) {
+          setIsChecking(false);
+          return;
+        }
+      }
+      onInitiate(config);
+    } catch (e) {
+      onInitiate(config);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
   const filteredConfigs = configs.filter(c => 
     c.unitName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -166,8 +186,9 @@ export const InitiationPage: React.FC<InitiationPageProps> = ({ onInitiate }) =>
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    onClick={() => onInitiate(config)}
-                    className="w-full group flex items-center justify-between p-6 bg-white hover:bg-primary border border-slate-100 hover:border-primary rounded-[28px] transition-all text-left shadow-sm hover:shadow-2xl hover:shadow-primary/20 active:scale-[0.98]"
+                    onClick={() => handleSelect(config)}
+                    disabled={isChecking}
+                    className={`w-full group flex items-center justify-between p-6 bg-white hover:bg-primary border border-slate-100 hover:border-primary rounded-[28px] transition-all text-left shadow-sm hover:shadow-2xl hover:shadow-primary/20 active:scale-[0.98] ${isChecking ? 'opacity-50 cursor-wait' : ''}`}
                   >
                     <div className="flex items-center space-x-5">
                       <div className="w-14 h-14 bg-slate-50 group-hover:bg-white/20 rounded-2xl flex items-center justify-center transition-colors shadow-inner">

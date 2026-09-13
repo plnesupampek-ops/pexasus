@@ -11,7 +11,6 @@ import {
   Database,
   Sliders,
   FileText,
-  RefreshCw,
   CheckCircle2,
   CloudOff,
   Cloud,
@@ -20,7 +19,12 @@ import {
   ArrowLeft,
   LogOut,
   AlertTriangle,
-  X
+  X,
+  Link2,
+  Edit3,
+  Eye,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { UserRole, ViewState, ReportData, ULPName, ULPData, LoginSession, DriveFile, AppConfig } from '@/types';
 import { InitiationPage } from '@/components/InitiationPage';
@@ -35,7 +39,7 @@ import { UpdateList } from '@/components/UpdateList';
 import { UpdatePhotoForm } from '@/components/UpdatePhotoForm';
 import { AssetList } from '@/components/AssetList';
 import { DATA_ULP as INITIAL_DATA_ULP, APP_VERSION } from '@/constants';
-import { api, setScriptUrl } from '@/services/api';
+import { api, setScriptUrl, getScriptUrl } from '@/services/api';
 
 const LOGO_URL = "https://plnes.co.id/_next/image?url=https%3A%2F%2Fcms.plnes.co.id%2Fuploads%2FLogo_HP_New_Temporary_09a9c5a521.png&w=750&q=75"; 
 const APP_LOGO = "https://lh3.googleusercontent.com/d/1ayQWBX032KZs0Cl86OzJO1lxqv-5RDds";
@@ -118,6 +122,27 @@ const App: React.FC = () => {
   };
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showManualUrlInput, setShowManualUrlInput] = useState(false);
+  const [manualUrl, setManualUrl] = useState('');
+  const [hasAutoResynced, setHasAutoResynced] = useState(false);
+
+  const handleSaveManualUrl = () => {
+    if (!manualUrl.trim().startsWith('https://script.google.com')) {
+      alert("⚠️ URL tidak valid!\n\nPastikan URL diawali dengan 'https://script.google.com' dan berakhiran '/exec'.");
+      return;
+    }
+    
+    if (appConfig) {
+      const updated = { ...appConfig, gasUrl: manualUrl.trim() };
+      setAppConfig(updated);
+      setScriptUrl(manualUrl.trim());
+      localStorage.setItem('appConfig', JSON.stringify(updated));
+      localStorage.setItem('scriptUrl', manualUrl.trim());
+      setShowManualUrlInput(false);
+      alert("✅ URL Manual Disimpan!\n\nAplikasi akan mencoba menghubungkan ke database baru.");
+      fetchData();
+    }
+  };
 
   const handleResetConfig = () => {
     console.log("INISIASI clicked - opening custom modal");
@@ -163,6 +188,68 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Reset Error:", err);
       window.location.reload();
+    }
+  };
+
+  const handleResyncFromMaster = async () => {
+    if (!appConfig) return;
+    setIsLoading(true);
+    setErrorLoad(null);
+    try {
+      const INITIATION_SHEET_ID = '14tJtuPhLzks6lBoAZmQeyu2xtWIycWdjgHiPHl3wcOo';
+      const url = `https://docs.google.com/spreadsheets/d/${INITIATION_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master&t=${Date.now()}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Gagal mengambil data dari Master Sheet pusat.");
+      const text = await response.text();
+      
+      const lines = text.split(/\r?\n/);
+      const data: AppConfig[] = lines.slice(1).map(line => {
+        const parts: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === ',' && !inQuotes) {
+            parts.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        parts.push(current.trim());
+        
+        // Sesuaikan dengan kolom di InitiationPage.tsx
+        return {
+          unitName: parts[2] || '',
+          spreadsheetId: parts[3] || '',
+          gasUrl: (parts[4] || '').trim(),
+          photoFolderId: parts[5] || '',
+          backupFolderId: parts[6] || '',
+        };
+      });
+
+      const matchedConfig = data.find(c => c.unitName === appConfig.unitName);
+      if (matchedConfig && matchedConfig.gasUrl) {
+        // If the URL from master is identical to our current broken URL, it's a permanent failure until master is updated
+        if (matchedConfig.gasUrl.trim() === appConfig.gasUrl.trim()) {
+           throw new Error(`Link di Master Sheet pusat untuk ${appConfig.unitName} masih link yang lama/mati. Administrator Pusat harus mengupdate kolom E di Master Sheet.`);
+        }
+
+        const updatedConfig = { ...appConfig, gasUrl: matchedConfig.gasUrl.trim() };
+        setAppConfig(updatedConfig);
+        setScriptUrl(matchedConfig.gasUrl);
+        localStorage.setItem('appConfig', JSON.stringify(updatedConfig));
+        localStorage.setItem('scriptUrl', matchedConfig.gasUrl);
+        alert("✅ Sinkronisasi Berhasil!\n\nLink Database untuk Unit " + appConfig.unitName + " telah diperbarui secara otomatis dari pusat.");
+        fetchData();
+      } else {
+        throw new Error("Unit " + appConfig.unitName + " tidak ditemukan di Master Sheet pusat. Silakan Reset Konfigurasi.");
+      }
+    } catch (e: any) {
+      alert("❌ Gagal Sinkronisasi: " + e.message);
+      setErrorLoad("Gagal sinkronisasi otomatis: " + e.message);
+      setIsLoading(false);
     }
   };
 
@@ -377,7 +464,38 @@ const App: React.FC = () => {
 
         if (data.reports) {
           console.log(`Ditemukan ${data.reports.length} laporan.`);
-          setReports(data.reports);
+          
+          // Merge logic: lindungi data lokal yang baru saja di-update agar tidak tertimpa data server yang belum sinkron sempurna
+          setReports(prevReports => {
+            const serverReports = data.reports as ReportData[];
+            const merged = [...serverReports];
+            
+            // Cek setiap laporan yang sedang dalam status 'pending' di lokal
+            pendingUpdatesRef.current.forEach((_, id) => {
+              const localReport = prevReports.find(r => r.id === id);
+              if (localReport) {
+                const index = merged.findIndex(r => r.id === id);
+                if (index !== -1) {
+                  const serverReport = merged[index];
+                  // Jika server sudah punya datanya tapi fotonya masih kosong (link belum terbit),
+                  // pertahankan versi lokal yang masih punya data base64 agar foto tidak hilang sekejap.
+                  const serverHasPhotos = (
+                    (serverReport.photos?.sebelum?.some(p => p && p.startsWith('http'))) || 
+                    (serverReport.photos?.sesudah?.some(p => p && p.startsWith('http')))
+                  );
+                  
+                  if (!serverHasPhotos) {
+                    merged[index] = localReport;
+                  }
+                } else {
+                  // Jika server belum punya datanya sama sekali, pertahankan data lokal di posisi paling atas
+                  merged.unshift(localReport);
+                }
+              }
+            });
+            
+            return merged;
+          });
           
           if (data.reports.length > 0) {
             const sorted = [...data.reports].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -507,7 +625,21 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Gagal mengambil data:", error);
-      if (showLoading) setErrorLoad(error.message || "Gagal terhubung ke database.");
+      
+      // Auto-Resync logic on 404 (Script not found)
+      if (error.message.includes('404') && !hasAutoResynced && appConfig) {
+        console.log("Detecting 404 error - attempting auto-resync from master once with cache-busting...");
+        setHasAutoResynced(true);
+        handleResyncFromMaster();
+        return;
+      }
+      
+      let displayError = error.message || "Gagal terhubung ke database.";
+      if (error.message.includes('404')) {
+        displayError = `⚠️ DATABASE TIDAK DITEMUKAN (404). Link Apps Script unit ${appConfig?.unitName} kemungkinan besar telah dihapus atau ID-nya berubah. Administrator harus melakukan Deploy ulang sebagai Web App.`;
+      }
+
+      if (showLoading) setErrorLoad(displayError);
     } finally {
       if (showLoading) setIsLoading(false);
     }
@@ -602,7 +734,10 @@ const App: React.FC = () => {
         localStorage.setItem('yandal_local_reports', JSON.stringify([data, ...reports.filter(r => r.id !== data.id)]));
       } else {
         await api.saveReport(data, isEditMode);
-        setTimeout(() => { fetchData(false); pendingUpdatesRef.current.delete(data.id); }, 8000);
+        setTimeout(async () => { 
+          await fetchData(false); 
+          pendingUpdatesRef.current.delete(data.id); 
+        }, 8000);
       }
       setEditingReport(null);
       setUpdatingReport(null);
@@ -902,8 +1037,8 @@ const App: React.FC = () => {
     return <InitiationPage onInitiate={handleInitiate} />;
   }
 
-  // 2. Loading State
-  if (isLoading) {
+  // 2. Loading State (Only show full screen for initial initiation)
+  if (isLoading && view === 'INITIATION') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4 p-4 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -1324,34 +1459,121 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 relative">
+        {/* Loading Overlay for non-initial loading to prevent unmounting form */}
+        {isLoading && (
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-[2px] z-[999] flex flex-col items-center justify-center gap-4 animate-fade-in">
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 flex flex-col items-center gap-4">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+              <p className="text-slate-700 font-black uppercase tracking-widest text-[10px]">Sinkronisasi Database...</p>
+            </div>
+          </div>
+        )}
         {errorLoad && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm text-left relative">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-amber-100 text-amber-800 rounded-xl shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+          <div className="mb-6 p-5 bg-white border-2 border-amber-500 rounded-[32px] shadow-xl text-left relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-10 rotate-12 group-hover:rotate-0 transition-transform pointer-events-none">
+              <Database className="w-24 h-24 text-amber-500" />
+            </div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-lg shadow-amber-200 animate-pulse">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Database Bermasalah (404)</h4>
+                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tighter">Connection Failure detected</p>
+                  </div>
+                </div>
+                <button onClick={() => setErrorLoad(null)} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="flex-1 space-y-2">
-                <h4 className="text-xs font-black text-amber-900 uppercase tracking-wider">Status Server Database Apps Script</h4>
-                <p className="text-xs text-amber-800 font-medium leading-relaxed">{errorLoad}</p>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+
+              <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 mb-4">
+                <p className="text-xs text-slate-700 font-medium leading-relaxed mb-2">{errorLoad}</p>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-amber-700">
+                  <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
+                  Saran: Link di Master Sheet mungkin sudah mati atau belum di-deploy.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="flex flex-col gap-2">
                   <button
-                    onClick={() => fetchData()}
-                    className="px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm"
+                    onClick={fetchData}
+                    className="w-full px-4 py-3 bg-slate-900 hover:bg-black text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                   >
+                    <RefreshCw className="w-4 h-4" />
                     Coba Muat Ulang
                   </button>
                   <button
-                    onClick={() => { setIsDemoMode(true); setErrorLoad(null); }}
-                    className="px-3 py-1.5 bg-white hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+                    onClick={handleResyncFromMaster}
+                    className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                   >
-                    Gunakan Mode Offline
+                    <Link2 className="w-4 h-4" />
+                    Sinkronisasi Pusat
                   </button>
                 </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => setShowManualUrlInput(!showManualUrlInput)}
+                    className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-200"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Input Link Manual
+                  </button>
+                  <button
+                    onClick={() => { setIsDemoMode(true); setErrorLoad(null); }}
+                    className="w-full px-4 py-3 bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Gunakan Mode Demo
+                  </button>
+                  <a
+                    href={getScriptUrl() || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Cek Link di Browser
+                  </a>
+                </div>
               </div>
-              <button onClick={() => setErrorLoad(null)} className="text-amber-500 hover:text-amber-800 p-1">
-                <X className="w-4 h-4" />
-              </button>
+
+              {showManualUrlInput && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-2xl border-2 border-dashed border-amber-300 animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Masukkan Link Apps Script (exec) Baru:</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      value={manualUrl}
+                      onChange={(e) => setManualUrl(e.target.value)}
+                      placeholder="https://script.google.com/macros/s/.../exec"
+                      className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                    <button 
+                      onClick={handleSaveManualUrl}
+                      className="px-4 py-2 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase transition-all hover:bg-amber-700"
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[9px] text-slate-400 italic">⚠️ Gunakan ini jika Anda memiliki link yang baru di-deploy.</p>
+                </div>
+              )}
+
+              <div className="mt-6 pt-4 border-t border-amber-100 flex items-center justify-between">
+                <p className="text-[9px] text-amber-700 font-bold uppercase tracking-widest">Ganti Unit Layanan?</p>
+                <button
+                  onClick={handleResetConfig}
+                  className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-red-200 animate-pulse active:scale-95"
+                >
+                  RESET TOTAL / LOGOUT
+                </button>
+              </div>
             </div>
           </div>
         )}
